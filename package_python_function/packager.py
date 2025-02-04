@@ -5,11 +5,6 @@ import shutil
 
 from .python_project import PythonProject
 
-"""
-TODO
-    - inner_zip_dependencies
-    - exclude_patterns
-"""
 
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262144000
@@ -73,5 +68,14 @@ class Packager:
 
     def generate_nested_zip(self, inner_zip_path: Path) -> None:
         with zipfile.ZipFile(self.output_file_path, 'w') as outer_zip_file:
-            outer_zip_file.write(inner_zip_path, arcname=".dependencies.zip", compresslevel=zipfile.ZIP_STORED)
-            outer_zip_file.writestr("todo/__init__.py", "TODO: CONTENT", compresslevel=zipfile.ZIP_DEFLATED)
+            entrypoint_dir = Path(self.project.entrypoint_package_name)
+            outer_zip_file.write(
+                inner_zip_path,
+                arcname=str(entrypoint_dir / ".dependencies.zip"),
+                compresslevel=zipfile.ZIP_STORED
+            )
+            outer_zip_file.writestr(
+                str(entrypoint_dir / "__init__.py"),
+                Path(__file__).parent.joinpath("nested_zip_loader.py").read_text(),
+                compresslevel=zipfile.ZIP_DEFLATED
+            )
