@@ -40,8 +40,8 @@ def load_nested_zip() -> None:
     # [No longer applicable] We want our path to look like [working_dir, /tmp/package-python-function, ...]
     # Refer to https://docs.aws.amazon.com/lambda/latest/dg/python-package.html#python-package-searchpath
     # We need to replace the original path that AWS Lambda setup for us.
-    # sys.path.insert(1, target_package_path)
-    sys.path[0] = target_package_path
+    # sys.path.insert(1, str(target_package_path))
+    sys.path[0] = str(target_package_path)
     importlib.reload(sys.modules[__name__])
 
 load_nested_zip()
