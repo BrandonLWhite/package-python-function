@@ -21,13 +21,13 @@ jobs:
       - run: poe test
       - run: poetry build
 
-      - uses: irongut/CodeCoverageSummary@v1.3.0
-        with:
-          filename: coverage.xml
-          badge: true
-          format: markdown
-          output: both
+      # - uses: irongut/CodeCoverageSummary@v1.3.0
+      #   with:
+      #     filename: coverage.xml
+      #     badge: true
+      #     format: markdown
+      #     output: both
 
-      - uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          path: code-coverage-results.md
+      # - uses: marocchino/sticky-pull-request-comment@v2
+      #   with:
+      #     path: code-coverage-results.md
