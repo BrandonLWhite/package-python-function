@@ -1,0 +1,28 @@
+name: Release
+on:
+  release:
+    types: [created]
+
+jobs:
+  build:
+    permissions:
+      pull-requests: write
+      id-token: write # Needed for pypi trusted publishing
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - uses: BrandonLWhite/pipx-install-action@v1.0.1
+
+      - run: poetry install
+      - run: poe test
+      - run: poetry version ${{ github.ref_name }}
+      - run: poetry build
+
+      - name: Publish distribution 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
