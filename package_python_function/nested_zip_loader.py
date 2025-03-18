@@ -31,13 +31,13 @@ def load_nested_zip() -> None:
         if staging_package_path.exists():
             shutil.rmtree(str(staging_package_path))
 
-        nested_zip_path = Path(__file__).parent / '.requirements.zip'
+        nested_zip_path = Path(__file__).parent / '.dependencies.zip'
 
         zipfile.ZipFile(str(nested_zip_path), 'r').extractall(str(staging_package_path))
         os.rename(str(staging_package_path), str(target_package_path))  # Atomic -- TODO BW DOCME
 
     # TODO BW: Update this comment
-    # We want our path to look like [working_dir, serverless_requirements, ...]
+    # We want our path to look like [working_dir, /tmp/package-python-function, ...]
     sys.path.insert(1, target_package_path)
     importlib.reload(sys.modules[__name__])
 
