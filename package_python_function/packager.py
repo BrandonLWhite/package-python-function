@@ -34,6 +34,8 @@ class Packager:
         print("Input:", self.input_path)
         print("Entrypoint Package name:", self.project.entrypoint_package_name)
 
+        self.output_file_path.parent.mkdir(parents=True, exist_ok=True)
+
         with NamedTemporaryFile() as dependencies_zip:
             self.zip_all_dependencies(Path(dependencies_zip.name))
 
