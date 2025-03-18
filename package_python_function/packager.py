@@ -9,17 +9,14 @@ from .python_project import PythonProject
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262144000
 
-    def __init__(self, venv_path: Path, project_path: Path, output_path: Path):
+    def __init__(self, venv_path: Path, project_path: Path, output_dir: Path, output_file: Path | None):
         self.project = PythonProject(project_path)
         self.venv_path = venv_path
-        self.output_path = output_path
-        self._uncompressed_bytes = 0
 
-    @property
-    def output_file_path(self) -> Path:
-        if self.output_path.is_dir():
-            return self.output_path / f'{self.project.name}.zip'
-        return self.output_path
+        self.output_dir = output_file.parent if output_file else output_dir
+        self.output_file = output_file if output_file else output_dir / f'{self.project.name}.zip'
+
+        self._uncompressed_bytes = 0
 
     @property
     def input_path(self) -> Path:
@@ -30,11 +27,11 @@ class Packager:
 
     def package(self) -> None:
         print("Packaging:", self.project.path)
-        print("Output:", self.output_file_path)
+        print("Output:", self.output_file)
         print("Input:", self.input_path)
         print("Entrypoint Package name:", self.project.entrypoint_package_name)
 
-        self.output_file_path.parent.mkdir(parents=True, exist_ok=True)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         with NamedTemporaryFile() as dependencies_zip:
             self.zip_all_dependencies(Path(dependencies_zip.name))
@@ -66,10 +63,10 @@ class Packager:
             else:
                 print(f"TODO Error.  The unzipped size it too large for AWS Lambda.")
         else:
-            shutil.copy(str(target_path), str(self.output_file_path))
+            shutil.copy(str(target_path), str(self.output_file))
 
     def generate_nested_zip(self, inner_zip_path: Path) -> None:
-        with zipfile.ZipFile(self.output_file_path, 'w') as outer_zip_file:
+        with zipfile.ZipFile(self.output_file, 'w') as outer_zip_file:
             entrypoint_dir = Path(self.project.entrypoint_package_name)
             outer_zip_file.write(
                 inner_zip_path,
