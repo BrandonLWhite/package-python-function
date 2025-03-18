@@ -1,0 +1,33 @@
+name: Pull Request
+on:
+  pull_request
+
+jobs:
+  build:
+    permissions:
+      pull-requests: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: pyproject.toml
+
+      - uses: BrandonLWhite/pipx-install-action@v1.0.1
+
+      - run: poetry install
+      - run: poe test
+      - run: poetry build
+
+      - uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage.xml
+          badge: true
+          format: markdown
+          output: both
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: code-coverage-results.md
