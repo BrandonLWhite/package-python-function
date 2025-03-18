@@ -14,6 +14,7 @@ python = "^3.9"
 pytest = "^8.2.0"
 pytest-mypy-runner = "^1.0.0"
 mypy = "^1.10.0"
+pytest-cov = "^6.0.0"
 
 [build-system]
 requires = ["poetry-core"]
