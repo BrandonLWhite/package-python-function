@@ -1,0 +1,14 @@
+[project]
+name = "project-1"
+version = "0.1.0"
+description = "project-1"
+authors = [{ name = "Brandon White", email = "brandonlwhite@gmail.com" }]
+license = "MIT"
+readme = "README.md"
+requires-python = "^3.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
