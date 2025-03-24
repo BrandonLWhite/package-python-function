@@ -26,6 +26,7 @@ class Packager:
         return python_paths[0] / 'site-packages'
 
     def package(self) -> None:
+        # TODO: Improve logging.
         print("Packaging:", self.project.path)
         print("Output:", self.output_file)
         print("Input:", self.input_path)

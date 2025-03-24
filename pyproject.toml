@@ -1,14 +1,17 @@
-[tool.poetry]
+[project]
 name = "package-python-function"
 version = "0.1.0"
 description = "Python script to package a Python function for deploying to AWS Lambda"
-authors = ["BrandonLWhite <brandonlwhite@gmail.com>"]
+authors = [{ name = "Brandon White", email = "brandonlwhite@gmail.com" }]
 license = "MIT"
 readme = "README.md"
+requires-python = "^3.10"
 
-[tool.poetry.dependencies]
-python = "^3.9"
+[project.urls]
+repository = "https://github.com/BrandonLWhite/package-python-function"
 
+[project.scripts]
+package-python-function = "package_python_function.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
@@ -19,9 +22,6 @@ pytest-cov = "^6.0.0"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
-package-python-function = "package_python_function.main:main"
 
 [tool.pipx-install]
 poetry = "==2.1.1"
