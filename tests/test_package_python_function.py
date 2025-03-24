@@ -33,3 +33,5 @@ def test_package_python_function(tmp_path: Path) -> None:
         "--output-dir", str(output_dir_path),
     ]
     main()
+
+    assert (output_dir_path / 'project-1.zip').exists()

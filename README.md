@@ -29,4 +29,18 @@ Use [pipx](https://github.com/pypa/pipx) to install:
 pipx install package-python-function
 ```
 
+## Usage / Arguments
+`package-python-function venv-dir [--project PROJECT] [--output-dir OUTPUT_DIR] [--output OUTPUT]`
+
+- `venv-dir` [Required]:  The path to the virtual environment to package.
+
+- `--project` [Optional]: Path to the pyproject.toml file. Omit to use the pyproject.toml file in the current working directory.
+
+One of the following must be specified:
+- `--output`: The full output path of the final zip file.
+
+- `--output-dir`: The output directory for the final zip file.  The name of the zip file will be based on the project's
+name in the pyproject.toml file.
+
+
 
