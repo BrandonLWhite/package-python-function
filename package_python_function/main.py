@@ -16,7 +16,7 @@ def main() -> None:
 
 def parse_args() -> argparse.Namespace:
     arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("venv-dir", type=str, help="The directory path to the virtual environment to package into a zip file")
+    arg_parser.add_argument("venv_dir", type=str, help="The directory path to the virtual environment to package into a zip file")
     arg_parser.add_argument("--project", type=str, default='pyproject.toml', help="The path to the project's pyproject.toml file. Omit to use pyproject.toml in the current working directory.")
     arg_parser.add_argument("--output-dir", type=str, default='.', help="The directory path to save the output zip file. Default is the current working directory.")
     arg_parser.add_argument("--output", type=str, default='', help="The full file path for the output file. Use this instead of --output-dir if you want total control of the output file path.")

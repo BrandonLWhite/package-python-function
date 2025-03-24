@@ -30,9 +30,9 @@ pipx install package-python-function
 ```
 
 ## Usage / Arguments
-`package-python-function venv-dir [--project PROJECT] [--output-dir OUTPUT_DIR] [--output OUTPUT]`
+`package-python-function venv_dir [--project PROJECT] [--output-dir OUTPUT_DIR] [--output OUTPUT]`
 
-- `venv-dir` [Required]:  The path to the virtual environment to package.
+- `venv_dir` [Required]:  The path to the virtual environment to package.
 
 - `--project` [Optional]: Path to the pyproject.toml file. Omit to use the pyproject.toml file in the current working directory.
 
