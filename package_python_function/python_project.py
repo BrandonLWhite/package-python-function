@@ -22,7 +22,7 @@ class PythonProject:
         The subdirectory name in the source virtual environment's site-packages that contains the function's entrypoint
         code.
         """
-        # TODO : Parse out the project's package dir(s).  Use the first one if there are multiple.
+        # TODO : Parse out the project's package dir(s) if defined.  Use the first one if there are multiple.
         return self.name.replace('-', '_')
 
     def find_value(self, paths: tuple[tuple[str]]) -> str:
