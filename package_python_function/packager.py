@@ -2,8 +2,12 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 import zipfile
 import shutil
+import logging
 
 from .python_project import PythonProject
+
+
+logger = logging.getLogger(__name__)
 
 
 class Packager:
@@ -26,19 +30,15 @@ class Packager:
         return python_paths[0] / 'site-packages'
 
     def package(self) -> None:
-        # TODO: Improve logging.
-        print("Packaging:", self.project.path)
-        print("Output:", self.output_file)
-        print("Input:", self.input_path)
-        print("Entrypoint Package name:", self.project.entrypoint_package_name)
+        logger.info(f"Packaging: '{self.input_path}' to '{self.output_file}' using '{self.project.path}'... ")
 
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        with NamedTemporaryFile() as dependencies_zip:
+        with NamedTemporaryFile(suffix=".zip") as dependencies_zip:
             self.zip_all_dependencies(Path(dependencies_zip.name))
 
     def zip_all_dependencies(self, target_path: Path) -> None:
-        print(f"Zipping to {target_path} ...")
+        logger.info(f"Zipping to {target_path}...")
 
         with zipfile.ZipFile(target_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             def zip_dir(path: Path) -> None:
@@ -53,20 +53,22 @@ class Packager:
 
         compressed_bytes = target_path.stat().st_size
 
-        print(f"Uncompressed size: {self._uncompressed_bytes:,} bytes")
-        print(f"Compressed size: {compressed_bytes:,} bytes")
+        logger.info(f"Uncompressed size: {self._uncompressed_bytes:,} bytes. Compressed size: {compressed_bytes:,} bytes.")
 
         if self._uncompressed_bytes > self.AWS_LAMBDA_MAX_UNZIP_SIZE:
-            print(f"The uncompressed size of the ZIP file is greater than the AWS Lambda limit of {self.AWS_LAMBDA_MAX_UNZIP_SIZE:,} bytes.")
+            logger.info(f"The uncompressed size of the ZIP file is greater than the AWS Lambda limit of {self.AWS_LAMBDA_MAX_UNZIP_SIZE:,} bytes.")
             if(compressed_bytes < self.AWS_LAMBDA_MAX_UNZIP_SIZE):
-                print(f"The compressed size ({compressed_bytes:,}) is less than the AWS limit, so the nested-zip strategy will be used.")
+                logger.info(f"The compressed size ({compressed_bytes:,}) is less than the AWS limit, so the nested-zip strategy will be used.")
                 self.generate_nested_zip(target_path)
             else:
                 print(f"TODO Error.  The unzipped size it too large for AWS Lambda.")
         else:
+            logger.info(f"Copying '{target_path}' to '{self.output_file}'")
             shutil.copy(str(target_path), str(self.output_file))
 
     def generate_nested_zip(self, inner_zip_path: Path) -> None:
+        logger.info(f"Generating nested-zip and __init__.py loader using entrypoint package '{self.project.entrypoint_package_name}'...")
+
         with zipfile.ZipFile(self.output_file, 'w') as outer_zip_file:
             entrypoint_dir = Path(self.project.entrypoint_package_name)
             outer_zip_file.write(

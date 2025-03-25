@@ -6,7 +6,7 @@ This tool builds a ZIP file from a virtual environment with all depedencies inst
 then this tool will employ the ZIP-inside-ZIP (nested-ZIP) workaround.  This allows deploying Lambdas with large
 dependency packages, especially those with native code compiled extensions like Pandas, PyArrow, etc.
 
-This technique was originally pioneered by [serverless-python-requirements](https://github.com/serverless/serverless-python-requirements), which is a NodeJS (JavaScript) plugin for the [Serverless Framework](https://github.com/serverless/serverless).  This technique has been improved here to not require any special imports in your entrypoint source file.  That is, no changes are needed to your source code to leverage the nested ZIP deployment.
+This technique was originally pioneered by [serverless-python-requirements](https://github.com/serverless/serverless-python-requirements), which is a NodeJS (JavaScript) plugin for the [Serverless Framework](https://github.com/serverless/serverless).  The technique has been improved here to not require any special imports in your entrypoint source file.  That is, no changes are needed to your source code to leverage the nested ZIP deployment.
 
 The motivation for this Python tool is to achieve the same results as serverless-python-requirements but with a
 purely Python tool.  This can simplify and speed up developer and CI/CD workflows.

@@ -1,10 +1,14 @@
 import argparse
 from pathlib import Path
+import logging
+import sys
 
 from .packager import Packager
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(message)s")
+
     args = parse_args()
     project_path = Path(args.project).resolve()
     venv_path = Path(args.venv_dir).resolve()
