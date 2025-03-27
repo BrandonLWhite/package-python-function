@@ -18,7 +18,7 @@ class Packager:
         self.venv_path = venv_path
 
         self.output_dir = output_file.parent if output_file else output_dir
-        self.output_file = output_file if output_file else output_dir / f'{self.project.entrypoint_package_name}.zip'
+        self.output_file = output_file if output_file else output_dir / f'{self.project.distribution_name}.zip'
 
         self._uncompressed_bytes = 0
 
