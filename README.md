@@ -20,7 +20,8 @@ poetry bundle venv .build/.venv --without dev
 package-python-function .build/.venv --output-dir .build/lambda
 ```
 
-The output will be a .zip file with the same name as your project from your pyproject.toml file.
+The output will be a .zip file with the same name as your project from your pyproject.toml file (with dashes replaced
+with underscores).
 
 ## Installation
 Use [pipx](https://github.com/pypa/pipx) to install:
@@ -40,7 +41,7 @@ One of the following must be specified:
 - `--output`: The full output path of the final zip file.
 
 - `--output-dir`: The output directory for the final zip file.  The name of the zip file will be based on the project's
-name in the pyproject.toml file.
+name in the pyproject.toml file (with dashes replaced with underscores).
 
 
 
