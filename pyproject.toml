@@ -5,7 +5,7 @@ description = "Python script to package a Python function for deploying to AWS L
 authors = [{ name = "Brandon White", email = "brandonlwhite@gmail.com" }]
 license = "MIT"
 readme = "README.md"
-requires-python = "^3.10"
+requires-python = ">=3.10,<4.0"
 
 [project.urls]
 repository = "https://github.com/BrandonLWhite/package-python-function"
