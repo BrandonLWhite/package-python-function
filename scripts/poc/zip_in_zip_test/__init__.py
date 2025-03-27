@@ -1,13 +1,19 @@
-# This works perfectly!
-
-print('zip_in_zip_test.__init__: BEGIN.  This is the loader.')
-print("module_path:", __file__)
-
+"""
+Demonstrate how we can swap out the content an entire package during the __init__.py load process of that package.
+"""
 from pathlib import Path
 import importlib
 import sys
+import logging
+
+logger = logging.getLogger(__name__ + "(__init__.py loader)")
+
+logger.info(f'BEGIN.  This is the loader.  {__file__}')
 
 module_path = Path(__file__).parent
+
+# This is where we would unzip the inner ZIP file.  For this experiment, we can skip actually doing that and pretend
+# that it was extracted to .inner_package/
 
 # This works if I insert at zero.
 # Why does the serverless-python-requirements insist on inserting at 1?
@@ -17,6 +23,7 @@ module_path = Path(__file__).parent
 
 # This also works.  I am thinking this is the best way, because we need to unmount the original decompressed directory
 # since it contains the load __init__.py.
+previous_sys_path_root = sys.path[0]
 sys.path[0] = str(module_path / ".inner_package")
 
 
@@ -30,6 +37,7 @@ sys.path[0] = str(module_path / ".inner_package")
 # importlib.import_module(__name__)
 
 # This also works.  I think this is the best way.
+logger.info(f'Reloading {__name__} after switching {previous_sys_path_root} to {sys.path[0]}.')
 importlib.reload(sys.modules[__name__])
 
-print('zip_in_zip_test.__init__: END')
+logger.info('END')
