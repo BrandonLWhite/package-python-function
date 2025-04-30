@@ -5,7 +5,7 @@ description = "project-1"
 authors = [{ name = "Brandon White", email = "brandonlwhite@gmail.com" }]
 license = "MIT"
 readme = "README.md"
-requires-python = "^3.10"
+requires-python = ">=3.10,<4.0"
 
 
 [build-system]
