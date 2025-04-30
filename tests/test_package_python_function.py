@@ -1,12 +1,15 @@
-from pathlib import Path
 import sys
-from package_python_function.main import main
+import zipfile
+from pathlib import Path
 
+from package_python_function.main import main
 
 PROJECTS_DIR_PATH = Path(__file__).parent / 'projects'
 
-
 def test_package_python_function(tmp_path: Path) -> None:
+    EXPECTED_FILE_MODE = 0o644
+    EXPECTED_FILE_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+
     project_file_path = PROJECTS_DIR_PATH / 'project-1' / 'pyproject.toml'
 
     venv_dir_path = tmp_path / 'venv'
@@ -34,4 +37,15 @@ def test_package_python_function(tmp_path: Path) -> None:
     ]
     main()
 
-    assert (output_dir_path / 'project_1.zip').exists()
+    zip_file = output_dir_path / "project_1.zip"
+    assert zip_file.exists()
+
+    verify_dir_path = tmp_path / "verify"
+    verify_dir_path.mkdir()
+    with zipfile.ZipFile(zip_file, "r") as zip:
+        zip.extractall(verify_dir_path)
+        for file_info in zip.infolist():
+            assert file_info.date_time == EXPECTED_FILE_DATE_TIME
+
+            mode = (file_info.external_attr >> 16) & 0xFFFF
+            assert mode == EXPECTED_FILE_MODE
