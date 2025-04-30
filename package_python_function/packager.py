@@ -1,14 +1,13 @@
+import logging
+import shutil
+import zipfile
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-import zipfile
-import shutil
-import logging
 
 from .python_project import PythonProject
-
+from .reproducible_zip import ReproducibleZipFile
 
 logger = logging.getLogger(__name__)
-
 
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262144000
@@ -40,7 +39,7 @@ class Packager:
     def zip_all_dependencies(self, target_path: Path) -> None:
         logger.info(f"Zipping to {target_path}...")
 
-        with zipfile.ZipFile(target_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        with ReproducibleZipFile(target_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
             def zip_dir(path: Path) -> None:
                 for item in path.iterdir():
                     if item.is_dir():
@@ -61,7 +60,7 @@ class Packager:
                 logger.info(f"The compressed size ({compressed_bytes:,}) is less than the AWS limit, so the nested-zip strategy will be used.")
                 self.generate_nested_zip(target_path)
             else:
-                print(f"TODO Error.  The unzipped size it too large for AWS Lambda.")
+                print("TODO Error.  The unzipped size it too large for AWS Lambda.")
         else:
             logger.info(f"Copying '{target_path}' to '{self.output_file}'")
             shutil.copy(str(target_path), str(self.output_file))
