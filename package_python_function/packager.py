@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import logging
-import os
 import shutil
-import time
 import zipfile
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import TYPE_CHECKING
+from zipfile import ZIP_DEFLATED, ZIP_STORED
 
 from .python_project import PythonProject
-
-if TYPE_CHECKING:
-    from typing import Tuple
+from .reproducible_zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
@@ -46,35 +42,14 @@ class Packager:
     def zip_all_dependencies(self, target_path: Path) -> None:
         logger.info(f"Zipping to {target_path}...")
 
-        def date_time() -> Tuple[int, int, int, int, int, int]:
-            """Returns date_time value used to force overwrite on all ZipInfo objects. Defaults to
-            1980-01-01 00:00:00. You can set this with the environment variable SOURCE_DATE_EPOCH as an
-            integer value representing seconds since Epoch.
-            """
-            source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", None)
-            if source_date_epoch is not None:
-                return time.gmtime(int(source_date_epoch))[:6]
-            return (1980, 1, 1, 0, 0, 0)
-
-        with zipfile.ZipFile(target_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
-
+        with ZipFile(target_path, "w", ZIP_DEFLATED) as zip_file:
             def zip_dir(path: Path) -> None:
                 for item in path.iterdir():
                     if item.is_dir():
                         zip_dir(item)
                     else:
-                        zinfo = zipfile.ZipInfo.from_file(
-                            item, item.relative_to(self.input_path)
-                        )
-                        zinfo.date_time = date_time()
-                        zinfo.external_attr = 0o644 << 16
-                        zinfo.compress_type = zipfile.ZIP_DEFLATED
                         self._uncompressed_bytes += item.stat().st_size
-                        with (
-                            open(item, "rb") as src,
-                            zip_file.open(zinfo, "w") as dest,
-                        ):
-                            shutil.copyfileobj(src, dest, 1024 * 8)
+                        zip_file.write_reproducibly(item, item.relative_to(self.input_path))
 
             zip_dir(self.input_path)
 
