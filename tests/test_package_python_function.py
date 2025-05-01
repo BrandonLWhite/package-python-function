@@ -40,12 +40,16 @@ def test_package_python_function(tmp_path: Path) -> None:
     zip_file = output_dir_path / "project_1.zip"
     assert zip_file.exists()
 
-    verify_dir_path = tmp_path / "verify"
-    verify_dir_path.mkdir()
+    verify_dir = tmp_path / "verify"
+    verify_dir.mkdir()
     with zipfile.ZipFile(zip_file, "r") as zip:
-        zip.extractall(verify_dir_path)
+        zip.extractall(verify_dir)
         for file_info in zip.infolist():
-            assert file_info.date_time == EXPECTED_FILE_DATE_TIME
-
             mode = (file_info.external_attr >> 16) & 0xFFFF
             assert mode == EXPECTED_FILE_MODE
+            assert file_info.date_time == EXPECTED_FILE_DATE_TIME
+
+        assert verify_dir / "project_1" / "__init__.py"
+        assert verify_dir / "project_1" / "project1.py"
+        assert verify_dir / "small_dependency" / "__init__.py"
+        assert verify_dir / "small_dependency" / "small_dependency.py"
