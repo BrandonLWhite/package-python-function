@@ -1,14 +1,20 @@
+from __future__ import annotations
+
+import logging
+import os
+import shutil
+import time
+import zipfile
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-import zipfile
-import shutil
-import logging
+from typing import TYPE_CHECKING
 
 from .python_project import PythonProject
 
+if TYPE_CHECKING:
+    from typing import Tuple
 
 logger = logging.getLogger(__name__)
-
 
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262144000
@@ -40,14 +46,34 @@ class Packager:
     def zip_all_dependencies(self, target_path: Path) -> None:
         logger.info(f"Zipping to {target_path}...")
 
-        with zipfile.ZipFile(target_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        def date_time() -> Tuple[int, int, int, int, int, int]:
+            """Returns date_time value used to force overwrite on all ZipInfo objects. Defaults to
+            1980-01-01 00:00:00. You can set this with the environment variable SOURCE_DATE_EPOCH as an
+            integer value representing seconds since Epoch.
+            """
+            source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", None)
+            if source_date_epoch is not None:
+                return time.gmtime(int(source_date_epoch))[:6]
+            return (1980, 1, 1, 0, 0, 0)
+
+        with zipfile.ZipFile(target_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+
             def zip_dir(path: Path) -> None:
                 for item in path.iterdir():
                     if item.is_dir():
                         zip_dir(item)
                     else:
+                        zinfo = zipfile.ZipInfo.from_file(
+                            item, item.relative_to(self.input_path)
+                        )
+                        zinfo.date_time = date_time()
+                        zinfo.external_attr = 0o644 << 16
                         self._uncompressed_bytes += item.stat().st_size
-                        zip_file.write(item, item.relative_to(self.input_path))
+                        with (
+                            open(item, "rb") as src,
+                            zip_file.open(zinfo, "w") as dest,
+                        ):
+                            shutil.copyfileobj(src, dest, 1024 * 8)
 
             zip_dir(self.input_path)
 
@@ -61,7 +87,7 @@ class Packager:
                 logger.info(f"The compressed size ({compressed_bytes:,}) is less than the AWS limit, so the nested-zip strategy will be used.")
                 self.generate_nested_zip(target_path)
             else:
-                print(f"TODO Error.  The unzipped size it too large for AWS Lambda.")
+                print("TODO Error.  The unzipped size it too large for AWS Lambda.")
         else:
             logger.info(f"Copying '{target_path}' to '{self.output_file}'")
             shutil.copy(str(target_path), str(self.output_file))
