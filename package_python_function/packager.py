@@ -68,6 +68,7 @@ class Packager:
                         )
                         zinfo.date_time = date_time()
                         zinfo.external_attr = 0o644 << 16
+                        zinfo.compress_type = zipfile.ZIP_DEFLATED
                         self._uncompressed_bytes += item.stat().st_size
                         with (
                             open(item, "rb") as src,
