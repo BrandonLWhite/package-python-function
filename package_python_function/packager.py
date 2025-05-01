@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import shutil
-import zipfile
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from zipfile import ZIP_DEFLATED, ZIP_STORED
@@ -71,15 +70,15 @@ class Packager:
     def generate_nested_zip(self, inner_zip_path: Path) -> None:
         logger.info(f"Generating nested-zip and __init__.py loader using entrypoint package '{self.project.entrypoint_package_name}'...")
 
-        with zipfile.ZipFile(self.output_file, 'w') as outer_zip_file:
+        with ZipFile(self.output_file, 'w') as outer_zip_file:
             entrypoint_dir = Path(self.project.entrypoint_package_name)
-            outer_zip_file.write(
+            outer_zip_file.write_reproducibly(
                 inner_zip_path,
                 arcname=str(entrypoint_dir / ".dependencies.zip"),
-                compresslevel=zipfile.ZIP_STORED
+                compresslevel=ZIP_STORED
             )
-            outer_zip_file.writestr(
+            outer_zip_file.writestr_reproducibly(
                 str(entrypoint_dir / "__init__.py"),
                 Path(__file__).parent.joinpath("nested_zip_loader.py").read_text(),
-                compresslevel=zipfile.ZIP_DEFLATED
+                compresslevel=ZIP_DEFLATED
             )
