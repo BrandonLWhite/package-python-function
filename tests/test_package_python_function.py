@@ -49,7 +49,7 @@ def test_package_python_function(tmp_path: Path) -> None:
             assert mode == EXPECTED_FILE_MODE
             assert file_info.date_time == EXPECTED_FILE_DATE_TIME
 
-        assert verify_dir / "project_1" / "__init__.py"
-        assert verify_dir / "project_1" / "project1.py"
-        assert verify_dir / "small_dependency" / "__init__.py"
-        assert verify_dir / "small_dependency" / "small_dependency.py"
+        assert (verify_dir / "project_1" / "__init__.py").exists()
+        assert (verify_dir / "project_1" / "project1.py").exists()
+        assert (verify_dir / "small_dependency" / "__init__.py").exists()
+        assert (verify_dir / "small_dependency" / "small_dependency.py").exists()

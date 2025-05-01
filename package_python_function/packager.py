@@ -63,7 +63,9 @@ class Packager:
                     if item.is_dir():
                         zip_dir(item)
                     else:
-                        zinfo = zipfile.ZipInfo.from_file(item)
+                        zinfo = zipfile.ZipInfo.from_file(
+                            item, item.relative_to(self.input_path)
+                        )
                         zinfo.date_time = date_time()
                         zinfo.external_attr = 0o644 << 16
                         self._uncompressed_bytes += item.stat().st_size
