@@ -2,54 +2,134 @@ import sys
 import zipfile
 from pathlib import Path
 
+import pytest
+from _pytest.monkeypatch import MonkeyPatch
+
 from package_python_function.main import main
+from package_python_function.reproducible_zipfile import (
+    DEFAULT_DATE_TIME,
+    SourceDateEpochError,
+)
 
-PROJECTS_DIR_PATH = Path(__file__).parent / 'projects'
+from .conftest import Data, verify_file_reproducibility
 
-def test_package_python_function(tmp_path: Path) -> None:
-    EXPECTED_FILE_MODE = 0o644
-    EXPECTED_FILE_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+@pytest.mark.parametrize(
+    "src_epoch, expected_exception, expected_date_time",
+    [
+        (None, None, DEFAULT_DATE_TIME),
+        ("666666666", None, (1991, 2, 16, 1, 11, 6)),
+        ("420", SourceDateEpochError, None),
+    ],
+    ids=[
+        "happy_path",
+        "valid_epoch_sets_expected_date_time",
+        "too_low_epoch_raises_error",
+    ],
+)
+def test_package_python_function(
+    expected_date_time: tuple | None,
+    expected_exception: Exception | None,
+    monkeypatch: MonkeyPatch,
+    src_epoch: str | None,
+    test_data: Data,
+    tmp_path: Path,
+) -> None:
+    if src_epoch is not None:
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", src_epoch)
+    else:
+        monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
 
-    project_file_path = PROJECTS_DIR_PATH / 'project-1' / 'pyproject.toml'
-
-    venv_dir_path = tmp_path / 'venv'
-    packages_dir = venv_dir_path / 'lib' / 'python3.11' / 'site-packages'
-    packages_dir.mkdir(parents=True)
-
-    primary_package_dir = packages_dir / 'project_1'
-    primary_package_dir.mkdir()
-    (primary_package_dir / '__init__.py').touch()
-    (primary_package_dir / 'project1.py').touch()
-
-    small_dependency_dir = packages_dir / 'small_dependency'
-    small_dependency_dir.mkdir()
-    (small_dependency_dir / '__init__.py').touch()
-    (small_dependency_dir / 'small_dependency.py').write_text("# This is a small dependency")
-
-    output_dir_path = tmp_path / 'output'
+    output_dir_path = tmp_path / "output"
     output_dir_path.mkdir()
 
     sys.argv = [
         "test_package_python_function",
-        str(venv_dir_path),
-        "--project", str(project_file_path),
-        "--output-dir", str(output_dir_path),
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
     ]
-    main()
 
-    zip_file = output_dir_path / "project_1.zip"
-    assert zip_file.exists()
+    if expected_exception is not None:
+        with pytest.raises(SourceDateEpochError):
+            main()
+    else:
+        main()
 
-    verify_dir = tmp_path / "verify"
-    verify_dir.mkdir()
-    with zipfile.ZipFile(zip_file, "r") as zip:
-        zip.extractall(verify_dir)
-        for file_info in zip.infolist():
-            mode = (file_info.external_attr >> 16) & 0xFFFF
-            assert mode == EXPECTED_FILE_MODE
-            assert file_info.date_time == EXPECTED_FILE_DATE_TIME
+        zip_file = output_dir_path / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+        assert zip_file.exists()
 
-        assert (verify_dir / "project_1" / "__init__.py").exists()
-        assert (verify_dir / "project_1" / "project1.py").exists()
-        assert (verify_dir / "small_dependency" / "__init__.py").exists()
-        assert (verify_dir / "small_dependency" / "small_dependency.py").exists()
+        verify_dir = tmp_path / "verify"
+        verify_dir.mkdir()
+        with zipfile.ZipFile(zip_file, "r") as zip:
+            zip.extractall(verify_dir)
+            verify_file_reproducibility(zip.infolist(), expected_file_date_time=expected_date_time)
+
+        for file in test_data.project_files:
+            assert (verify_dir / file.path).exists()
+
+@pytest.mark.parametrize(
+    "src_epoch, expected_exception, expected_date_time",
+    [
+        (None, None, DEFAULT_DATE_TIME),
+        ("666666666", None, (1991, 2, 16, 1, 11, 6)),
+        ("420", SourceDateEpochError, None),
+    ],
+    ids=[
+        "happy_path",
+        "valid_epoch_sets_expected_date_time",
+        "too_low_epoch_raises_error",
+    ],
+)
+def test_package_python_function_nested(
+    expected_date_time: tuple | None,
+    expected_exception: Exception | None,
+    monkeypatch: MonkeyPatch,
+    src_epoch: str | None,
+    test_data_nested: Data,
+    tmp_path: Path,
+) -> None:
+    if src_epoch is not None:
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", src_epoch)
+    else:
+        monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data_nested.venv_dir),
+        "--project",
+        str(test_data_nested.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+
+    if expected_exception is not None:
+        with pytest.raises(SourceDateEpochError):
+            main()
+    else:
+        main()
+
+        verify_dir = tmp_path / "verify"
+        verify_dir.mkdir()
+
+        project_name_snake = test_data_nested.pyproject.name.replace("-", "_")
+        ozip = output_dir_path / f"{project_name_snake}.zip"
+        assert ozip.exists()
+
+        with zipfile.ZipFile(ozip, "r") as ozip:
+            ozip.extractall(verify_dir)
+            verify_file_reproducibility(ozip.infolist(), expected_file_date_time=expected_date_time)
+
+            assert (verify_dir / project_name_snake / "__init__.py").exists()
+            inner_zip = verify_dir / project_name_snake / ".dependencies.zip"
+            assert inner_zip.exists()
+
+            with zipfile.ZipFile(inner_zip, "r") as izip:
+                izip.extractall(verify_dir)
+                verify_file_reproducibility(izip.infolist(), expected_file_date_time=expected_date_time)
+                for file in test_data_nested.project_files:
+                    assert (verify_dir / file.path).exists()
