@@ -1,11 +1,17 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
+from zipfile import ZipInfo
 
+import pytest
 import tomli_w
 
+from package_python_function.packager import Packager
 from package_python_function.python_project import PythonProject
-
+from package_python_function.reproducible_zipfile import (
+    DEFAULT_DATE_TIME,
+    DEFAULT_FILE_MODE,
+)
 
 @dataclass
 class File:
@@ -67,3 +73,38 @@ def _new_python_project(name: str) -> PythonProject:
         "tool": {"poetry": {"name": name}},
     }
     return pyproj
+
+def verify_file_reproducibility(file_info: list[ZipInfo], expected_file_date_time=None, expected_file_mode=None):
+    if expected_file_date_time is None:
+        expected_file_date_time = DEFAULT_DATE_TIME
+    if expected_file_mode is None:
+        expected_file_mode = DEFAULT_FILE_MODE
+
+    for info in file_info:
+        mode = (info.external_attr >> 16) & 0xFFFF
+        assert mode == expected_file_mode
+        assert info.date_time == expected_file_date_time
+
+@pytest.fixture
+def test_data(tmp_path: Path):
+    files = [
+        File.new("project_1/__init__.py"),
+        File.new("project_1/project1.py"),
+        File.new("small_dependency/__init__.py"),
+        File.new("small_dependency/small_dependency.py", "# This is a small dependency"),
+    ]
+    data = Data.new(project_name="project-1", project_files=files).commit(loc=tmp_path)
+    yield data
+
+@pytest.fixture
+def test_data_nested(tmp_path: Path):
+    files = [
+        File.new("project_1/__init__.py"),
+        File.new("project_1/project1.py"),
+        File.new("small_dependency/__init__.py"),
+        File.new("small_dependency/small_dependency.py", "# This is a small dependency"),
+        File.new("gigantic_dependency/__init__.py"),
+        File.new("gigantic_dependency/gigantic.py", "a" * Packager.AWS_LAMBDA_MAX_UNZIP_SIZE),
+    ]
+    data = Data.new(project_name="project-1", project_files=files).commit(loc=tmp_path)
+    yield data

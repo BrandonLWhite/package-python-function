@@ -12,7 +12,7 @@ from .reproducible_zipfile import ZipFile
 logger = logging.getLogger(__name__)
 
 class Packager:
-    AWS_LAMBDA_MAX_UNZIP_SIZE = 262144000
+    AWS_LAMBDA_MAX_UNZIP_SIZE = 262_144_000
 
     def __init__(self, venv_path: Path, project_path: Path, output_dir: Path, output_file: Path | None):
         self.project = PythonProject(project_path)

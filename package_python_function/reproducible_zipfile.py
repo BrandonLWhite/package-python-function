@@ -11,8 +11,9 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import Optional, Tuple, Union
 
-DIR_MODE = 0o755
-FILE_MODE = 0o644
+DEFAULT_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+DEFAULT_DIR_MODE = 0o755
+DEFAULT_FILE_MODE = 0o644
 
 class SourceDateEpochError(Exception):
     """Raise when there are issues with $SOURCE_DATE_EPOCH"""
@@ -30,7 +31,7 @@ def date_time() -> Tuple[int, int, int, int, int, int]:
                 "$SOURCE_DATE_EPOCH must be >= 315532800, since ZIP files need MS-DOS date/time format, which can be 1/1/1980, at minimum."
             )
         return dt
-    return (1980, 1, 1, 0, 0, 0)
+    return DEFAULT_DATE_TIME
 
 class ZipFile(zipfile.ZipFile):
     def write_reproducibly(
@@ -48,10 +49,10 @@ class ZipFile(zipfile.ZipFile):
         zinfo = zipfile.ZipInfo.from_file(filename, arcname, strict_timestamps=self._strict_timestamps)
         zinfo.date_time = date_time()
         if zinfo.is_dir():
-            zinfo.external_attr = (0o40000 | DIR_MODE) << 16
+            zinfo.external_attr = (0o40000 | DEFAULT_DIR_MODE) << 16
             zinfo.external_attr |= 0x10  # MS-DOS directory flag
         else:
-            zinfo.external_attr = FILE_MODE << 16
+            zinfo.external_attr = DEFAULT_FILE_MODE << 16
 
         if zinfo.is_dir():
             zinfo.compress_size = 0
@@ -86,10 +87,10 @@ class ZipFile(zipfile.ZipFile):
             zinfo.compress_type = self.compression
             zinfo._compresslevel = self.compresslevel
             if zinfo.is_dir():
-                zinfo.external_attr = (0o40000 | DIR_MODE) << 16
+                zinfo.external_attr = (0o40000 | DEFAULT_DIR_MODE) << 16
                 zinfo.external_attr |= 0x10  # MS-DOS directory flag
             else:
-                zinfo.external_attr = FILE_MODE << 16
+                zinfo.external_attr = DEFAULT_FILE_MODE << 16
         else:
             zinfo = zinfo_or_arcname
 
