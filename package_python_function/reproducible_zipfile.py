@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 DIR_MODE = 0o755
 FILE_MODE = 0o644
 
+class SourceDateEpochError(Exception):
+    """Raise when there are issues with $SOURCE_DATE_EPOCH"""
+
 def date_time() -> Tuple[int, int, int, int, int, int]:
     """Returns date_time value used to force overwrite on all ZipInfo objects. Defaults to
     1980-01-01 00:00:00. You can set this with the environment variable SOURCE_DATE_EPOCH as an
@@ -21,7 +24,12 @@ def date_time() -> Tuple[int, int, int, int, int, int]:
     """
     source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", None)
     if source_date_epoch is not None:
-        return time.gmtime(int(source_date_epoch))[:6]
+        dt = time.gmtime(int(source_date_epoch))[:6]
+        if dt[0] < 1980:
+            raise SourceDateEpochError(
+                "$SOURCE_DATE_EPOCH must be >= 315532800, since ZIP files need MS-DOS date/time format, which can be 1/1/1980, at minimum."
+            )
+        return dt
     return (1980, 1, 1, 0, 0, 0)
 
 class ZipFile(zipfile.ZipFile):
