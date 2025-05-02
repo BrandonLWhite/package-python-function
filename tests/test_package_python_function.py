@@ -4,35 +4,26 @@ from pathlib import Path
 
 from package_python_function.main import main
 
-PROJECTS_DIR_PATH = Path(__file__).parent / 'projects'
+from .conftest import Data, File
+
+EXPECTED_FILE_MODE = 0o644
+EXPECTED_FILE_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 
 def test_package_python_function(tmp_path: Path) -> None:
-    EXPECTED_FILE_MODE = 0o644
-    EXPECTED_FILE_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+    files = [
+        File.new("project_1/__init__.py"),
+        File.new("project_1/project1.py"),
+        File.new("small_dependency/__init__.py"),
+        File.new("small_dependency/small_dependency.py", "# This is a small dependency"),
+    ]
+    data = Data.new(project_name="project-1", project_files=files).commit(loc=tmp_path)
 
-    project_file_path = PROJECTS_DIR_PATH / 'project-1' / 'pyproject.toml'
-
-    venv_dir_path = tmp_path / 'venv'
-    packages_dir = venv_dir_path / 'lib' / 'python3.11' / 'site-packages'
-    packages_dir.mkdir(parents=True)
-
-    primary_package_dir = packages_dir / 'project_1'
-    primary_package_dir.mkdir()
-    (primary_package_dir / '__init__.py').touch()
-    (primary_package_dir / 'project1.py').touch()
-
-    small_dependency_dir = packages_dir / 'small_dependency'
-    small_dependency_dir.mkdir()
-    (small_dependency_dir / '__init__.py').touch()
-    (small_dependency_dir / 'small_dependency.py').write_text("# This is a small dependency")
-
-    output_dir_path = tmp_path / 'output'
+    output_dir_path = tmp_path / "output"
     output_dir_path.mkdir()
 
     sys.argv = [
-        "test_package_python_function",
-        str(venv_dir_path),
-        "--project", str(project_file_path),
+        "test_package_python_function", str(data.venv_dir),
+        "--project", str(data.pyproject.path),
         "--output-dir", str(output_dir_path),
     ]
     main()
@@ -49,7 +40,5 @@ def test_package_python_function(tmp_path: Path) -> None:
             assert mode == EXPECTED_FILE_MODE
             assert file_info.date_time == EXPECTED_FILE_DATE_TIME
 
-        assert (verify_dir / "project_1" / "__init__.py").exists()
-        assert (verify_dir / "project_1" / "project1.py").exists()
-        assert (verify_dir / "small_dependency" / "__init__.py").exists()
-        assert (verify_dir / "small_dependency" / "small_dependency.py").exists()
+    for file in data.project_files:
+        assert (verify_dir / file.path).exists()
