@@ -67,7 +67,10 @@ def test_package_python_function(
             verify_file_reproducibility(zip.infolist(), expected_file_date_time=expected_date_time)
 
         for file in test_data.project_files:
-            assert (verify_dir / file.path).exists()
+            if file in test_data.files_excluded_from_bundle:
+                assert not (verify_dir / file.path).exists()
+            else:
+                assert (verify_dir / file.path).exists()
 
 @pytest.mark.parametrize(
     "src_epoch, expected_exception, expected_date_time",
@@ -131,5 +134,9 @@ def test_package_python_function_nested(
             with zipfile.ZipFile(inner_zip, "r") as izip:
                 izip.extractall(verify_dir)
                 verify_file_reproducibility(izip.infolist(), expected_file_date_time=expected_date_time)
+
                 for file in test_data_nested.project_files:
-                    assert (verify_dir / file.path).exists()
+                    if file in test_data_nested.files_excluded_from_bundle:
+                        assert not (verify_dir / file.path).exists()
+                    else:
+                        assert (verify_dir / file.path).exists()

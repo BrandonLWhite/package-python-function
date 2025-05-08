@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
@@ -24,6 +25,7 @@ class File:
 
 @dataclass
 class Data:
+    files_excluded_from_bundle: list[File]  # relative to packages_dir
     project_files: list[File]  # relative to packages_dir
     pyproject: PythonProject
     python_version: str
@@ -34,10 +36,12 @@ class Data:
         cls,
         project_name: str,
         project_files: list[File],
+        files_excluded_from_bundle: list[File],
         python_version: str = "3.13",
     ) -> Self:
         pyproject = _new_python_project(name=project_name)
         return cls(
+            files_excluded_from_bundle=files_excluded_from_bundle,
             project_files=project_files,
             pyproject=pyproject,
             python_version=python_version,
@@ -86,25 +90,47 @@ def verify_file_reproducibility(file_info: list[ZipInfo], expected_file_date_tim
         assert info.date_time == expected_file_date_time
 
 @pytest.fixture
-def test_data(tmp_path: Path):
+def test_files(tmp_path: Path):
+    files_excluded_from_bundle = [
+        File.new("__pycache__/_virtualenv.cpython-313.pyc"),
+        File.new("project_1.dist-info/RECORD"),
+        File.new("project_1.dist-info/direct_url.json", contents=json.dumps({"url": str(tmp_path)})),
+    ]
     files = [
         File.new("project_1/__init__.py"),
         File.new("project_1/project1.py"),
+        File.new("project_1.dist-info/METADATA"),
         File.new("small_dependency/__init__.py"),
         File.new("small_dependency/small_dependency.py", "# This is a small dependency"),
+        *files_excluded_from_bundle,
     ]
-    data = Data.new(project_name="project-1", project_files=files).commit(loc=tmp_path)
-    yield data
+    yield files, files_excluded_from_bundle, tmp_path
 
 @pytest.fixture
-def test_data_nested(tmp_path: Path):
-    files = [
-        File.new("project_1/__init__.py"),
-        File.new("project_1/project1.py"),
-        File.new("small_dependency/__init__.py"),
-        File.new("small_dependency/small_dependency.py", "# This is a small dependency"),
+def test_files_nested(test_files):
+    files, files_excluded_from_bundle, tmp_path = test_files
+    big_files = [
         File.new("gigantic_dependency/__init__.py"),
         File.new("gigantic_dependency/gigantic.py", "a" * Packager.AWS_LAMBDA_MAX_UNZIP_SIZE),
     ]
-    data = Data.new(project_name="project-1", project_files=files).commit(loc=tmp_path)
+    yield [*files, *big_files], files_excluded_from_bundle, tmp_path
+
+@pytest.fixture
+def test_data(test_files):
+    files, files_excluded_from_bundle, loc = test_files
+    data = Data.new(
+        project_name="project-1",
+        project_files=files,
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
+    yield data
+
+@pytest.fixture
+def test_data_nested(test_files_nested):
+    files, files_excluded_from_bundle, loc = test_files_nested
+    data = Data.new(
+        project_name="project-1-nested",
+        project_files=files,
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
     yield data
