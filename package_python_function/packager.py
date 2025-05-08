@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262_144_000
+    DIRS_TO_EXCLUDE = ["__pycache__"]
+    DIST_INFO_FILES_TO_EXCLUDE = ["RECORD", "direct_url.json"]
+    EXTENSIONS_TO_EXCLUDE = [".pyc", ".pyo"]
 
     def __init__(self, venv_path: Path, project_path: Path, output_dir: Path, output_file: Path | None):
         self.project = PythonProject(project_path)
@@ -45,10 +48,18 @@ class Packager:
             def zip_dir(path: Path) -> None:
                 for item in path.iterdir():
                     if item.is_dir():
-                        zip_dir(item)
+                        if item.name not in self.DIRS_TO_EXCLUDE:
+                            zip_dir(item)
                     else:
-                        self._uncompressed_bytes += item.stat().st_size
-                        zip_file.write_reproducibly(item, item.relative_to(self.input_path))
+                        is_excluded_by_extension = item.suffix in self.EXTENSIONS_TO_EXCLUDE
+                        is_excluded_dist_info_file = (
+                            item.name in self.DIST_INFO_FILES_TO_EXCLUDE
+                            if item.parent.name.endswith(".dist-info")
+                            else False
+                        )
+                        if not (is_excluded_by_extension or is_excluded_dist_info_file):
+                            self._uncompressed_bytes += item.stat().st_size
+                            zip_file.write_reproducibly(item, item.relative_to(self.input_path))
 
             zip_dir(self.input_path)
 
