@@ -36,6 +36,10 @@ addopts = """
 --capture=tee-sys
 """
 
+[tool.coverage.run]
+branch = true
+omit = ["*/tests/**"]
+
 [tool.pipx-install]
 poetry = "==2.1.1"
 poethepoet = "==0.33.1"
