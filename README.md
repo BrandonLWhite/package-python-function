@@ -38,10 +38,26 @@ One of the following must be specified:
 - `--output-dir`: The output directory for the final zip file. The name of the zip file will be based on the project's
 name in the `pyproject.toml` file (with dashes replaced with underscores).
 
-## A Note on Reproducibility
+## Notes on Reproducibility
+
+### Timestamps
 
 The ZIP files generated adhere with [reproducible builds](https://reproducible-builds.org/docs/archives/). This means that file permissions and timestamps are modified inside the ZIP, such that the ZIP will have a deterministic hash. By default, the date is set to `1980-01-01`.
 
 Additionally, the tool respects the standardized `$SOURCE_DATE_EPOCH` [environment variable](https://reproducible-builds.org/docs/source-date-epoch/), which will allow you to set that date as needed.
 
 One important caveat is that ZIP files do not support files with timestamps earlier than `1980-01-01` inside them, due to MS-DOS compatibility. Therefore, the tool will throw a `SourceDateEpochError` is `$SOURCE_DATE_EPOCH` is below `315532800`.
+
+### Files with embedded full paths
+
+In testing, we found that several file types can leak information from the machine that generated the virtual environment.
+
+To get around this, the tool removes the following files:
+
+```gitignore
+**/__pycache/
+**/*.dist-info/direct_url.json
+**/*.dist-info/RECORD
+**/*.pyc
+**/*.pyo
+```
