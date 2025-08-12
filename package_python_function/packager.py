@@ -46,7 +46,8 @@ class Packager:
 
         with ZipFile(target_path, "w", ZIP_DEFLATED) as zip_file:
             def zip_dir(path: Path) -> None:
-                for item in path.iterdir():
+                # use sorted to make sure files are always written in a deterministic order
+                for item in sorted(path.iterdir(), key=lambda i: i.name):
                     if item.is_dir():
                         if item.name not in self.DIRS_TO_EXCLUDE:
                             zip_dir(item)

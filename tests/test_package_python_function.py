@@ -72,6 +72,45 @@ def test_package_python_function(
             else:
                 assert (verify_dir / file.path).exists()
 
+def test_python_package_deterministic_file_ordering(
+    test_data: Data,
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+):
+    zip_contents: dict[str, list[str]] = {}
+
+    original_iterdir = Path.iterdir
+
+    # Simulate adding the files in a random order
+    def shuffled_iterdir(path: Path):
+        import random
+
+        results = list(original_iterdir(path))
+        random.shuffle(results)
+        return iter(results)
+
+    monkeypatch.setattr(Path, "iterdir", shuffled_iterdir)
+
+    for id in ["a", "b"]:
+        output = tmp_path / f"output_{id}"
+        output.mkdir()
+        sys.argv = [
+            "test_package_python_function",
+            str(test_data.venv_dir),
+            "--project",
+            str(test_data.pyproject.path),
+            "--output-dir",
+            str(output),
+        ]
+        main()
+        zip_file = output / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+        with zipfile.ZipFile(zip_file, "r") as zip_file:
+            zip_contents[id] = [zi.filename for zi in zip_file.infolist()]
+
+    assert zip_contents["a"] == zip_contents["b"], (
+        "File ordering in the zip file is not deterministic when the input file order is shuffled."
+    )
+
 @pytest.mark.parametrize(
     "src_epoch, expected_exception, expected_date_time",
     [
