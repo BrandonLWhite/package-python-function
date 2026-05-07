@@ -45,7 +45,8 @@ def load_nested_zip() -> None:
 
         nested_zip_path = Path(__file__).parent / '.dependencies.zip'
 
-        zipfile.ZipFile(str(nested_zip_path), 'r').extractall(str(staging_package_path))
+        with zipfile.ZipFile(str(nested_zip_path), "r") as nested_zip:
+            nested_zip.extractall(str(staging_package_path))
 
         # The idea here is that we don't rename the path until everything has been successfuly extracted.
         # This is expected to be a an atomic operation.  That way, if AWS terminates us during the extraction,
