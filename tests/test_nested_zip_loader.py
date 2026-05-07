@@ -75,5 +75,5 @@ def test_concurrent_no_race(lambda_env):
         p.start()
     for p in procs:
         p.join(timeout=10)
-        assert p.exitcode == 0, "A race condition occured while extracting."
+        assert p.exitcode == 0, "A race condition occurred while extracting."
     assert (lambda_env / "tmp" / "package-python-function").exists()
