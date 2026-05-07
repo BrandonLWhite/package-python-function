@@ -24,33 +24,43 @@ For this reason, we can be left with an incomplete extraction and so care is tak
 """
 
 def load_nested_zip() -> None:
-    from pathlib import Path
+    import fcntl
+    import importlib
     import sys
     import tempfile
-    import importlib
+    from pathlib import Path
 
     temp_path = Path(tempfile.gettempdir())
 
     target_package_path = temp_path / "package-python-function"
 
-    if not target_package_path.exists():
-        import zipfile
-        import shutil
-        import os
+    # We use manual locks here to allow target_package_path to stay static,
+    # but avoid race conditions when multiple processes try to run this
+    # function at the same time.
+    lock_path = temp_path / ".package-python-function.lock"
 
-        staging_package_path = temp_path / ".stage.package-python-function"
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
 
-        if staging_package_path.exists():
-            shutil.rmtree(str(staging_package_path))
+        if not target_package_path.exists():
+            import zipfile
+            import shutil
+            import os
 
-        nested_zip_path = Path(__file__).parent / '.dependencies.zip'
+            staging_package_path = temp_path / ".stage.package-python-function"
 
-        zipfile.ZipFile(str(nested_zip_path), 'r').extractall(str(staging_package_path))
+            if staging_package_path.exists():
+                shutil.rmtree(str(staging_package_path))
 
-        # The idea here is that we don't rename the path until everything has been successfuly extracted.
-        # This is expected to be a an atomic operation.  That way, if AWS terminates us during the extraction,
-        # we won't try and use the incomplete extraction.
-        os.rename(str(staging_package_path), str(target_package_path))
+            nested_zip_path = Path(__file__).parent / ".dependencies.zip"
+
+            with zipfile.ZipFile(str(nested_zip_path), "r") as nested_zip:
+                nested_zip.extractall(str(staging_package_path))
+
+            # The idea here is that we don't rename the path until everything has been successfully extracted.
+            # This is expected to be an atomic operation.  That way, if AWS terminates us during the extraction,
+            # we won't try and use the incomplete extraction.
+            os.rename(str(staging_package_path), str(target_package_path))
 
     # Lambda sets up the sys.path like this:
     #    ['/var/task', '/opt/python/lib/python3.13/site-packages', '/opt/python',
