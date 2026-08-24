@@ -1,3 +1,4 @@
+import json
 import sys
 import zipfile
 from pathlib import Path
@@ -6,12 +7,14 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from package_python_function.main import main
+from package_python_function.packager import PackageTooLargeError, Packager
+from package_python_function.python_project import PythonProject
 from package_python_function.reproducible_zipfile import (
     DEFAULT_DATE_TIME,
     SourceDateEpochError,
 )
 
-from .conftest import Data, verify_file_reproducibility
+from .conftest import Data, File, verify_file_reproducibility
 
 @pytest.mark.parametrize(
     "src_epoch, expected_exception, expected_date_time",
@@ -179,3 +182,241 @@ def test_package_python_function_nested(
                         assert not (verify_dir / file.path).exists()
                     else:
                         assert (verify_dir / file.path).exists()
+
+def _expected_uncompressed_bytes(data: Data) -> int:
+    return sum(
+        len(file.contents.encode())
+        for file in data.project_files
+        if file not in data.files_excluded_from_bundle
+    )
+
+def test_report_describes_a_single_zip(test_data: Data, tmp_path: Path) -> None:
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+    main()
+
+    zip_file = output_dir_path / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    report = json.loads(report_path.read_text())
+
+    assert Path(report["output_file"]) == zip_file.resolve()
+    assert report["distribution_name"] == test_data.pyproject.name.replace("-", "_")
+    assert report["nested_zip"] is False
+    assert report["output_bytes"] == zip_file.stat().st_size
+    # The single-zip strategy copies the dependencies zip verbatim, so the two figures describe the same bytes.
+    assert report["compressed_bytes"] == report["output_bytes"]
+    assert report["uncompressed_bytes"] == _expected_uncompressed_bytes(test_data)
+
+def test_report_describes_a_nested_zip(
+    monkeypatch: MonkeyPatch,
+    test_files: tuple,
+    tmp_path: Path,
+) -> None:
+    files, files_excluded_from_bundle, loc = test_files
+    # Compressible bulk, so that the uncompressed size exceeds the limit while the compressed size does not.
+    test_data = Data.new(
+        project_name="project-1",
+        project_files=[*files, File.new("bulky_dependency/bulky.py", "a" * 100_000)],
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
+
+    monkeypatch.setattr(Packager, "AWS_LAMBDA_MAX_UNZIP_SIZE", 10_000)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+    main()
+
+    outer_zip = output_dir_path / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    report = json.loads(report_path.read_text())
+
+    assert Path(report["output_file"]) == outer_zip.resolve()
+    assert report["nested_zip"] is True
+    assert report["output_bytes"] == outer_zip.stat().st_size
+    # compressed_bytes describes the inner dependencies zip, which the outer zip stores alongside the loader.
+    assert report["compressed_bytes"] < report["output_bytes"]
+    assert report["uncompressed_bytes"] == _expected_uncompressed_bytes(test_data)
+
+def test_no_report_is_written_without_the_flag(test_data: Data, tmp_path: Path) -> None:
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+    main()
+
+    assert [path.name for path in output_dir_path.iterdir()] == [
+        f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    ]
+
+def test_package_too_large_raises_and_writes_nothing(
+    monkeypatch: MonkeyPatch,
+    test_data: Data,
+    tmp_path: Path,
+) -> None:
+    # A limit this small is exceeded by both figures, which is the only way to reach the failing branch without
+    # generating hundreds of megabytes of incompressible data.
+    monkeypatch.setattr(Packager, "AWS_LAMBDA_MAX_UNZIP_SIZE", 10)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+
+    with pytest.raises(PackageTooLargeError) as error:
+        main()
+
+    assert error.value.uncompressed_bytes > 10
+    assert error.value.compressed_bytes > 10
+    assert error.value.limit_bytes == 10
+
+    assert list(output_dir_path.iterdir()) == []
+    assert not report_path.exists()
+
+def test_venv_without_a_python_lib_dir_names_the_path(test_data: Data, tmp_path: Path) -> None:
+    empty_venv_dir = tmp_path / "empty-venv"
+    empty_venv_dir.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(empty_venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(tmp_path / "output"),
+    ]
+
+    with pytest.raises(FileNotFoundError, match="lib/python"):
+        main()
+
+def test_pyproject_without_a_name_names_what_was_searched(tmp_path: Path) -> None:
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text('[project]\nversion = "1.2.3"\n')
+
+    with pytest.raises(ValueError, match="project.name, tool.poetry.name"):
+        PythonProject(pyproject_path).name
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("My-App", "My_App"),
+        ("my.app", "my.app"),
+        ("a b  c", "a_b_c"),
+        # 35 separate runs to replace. re.UNICODE is 32, so passing it as `count` stopped the replacement early.
+        ("-".join("abcdefghijklmnopqrstuvwxyz0123456789"), "_".join("abcdefghijklmnopqrstuvwxyz0123456789")),
+    ],
+    ids=["case_is_preserved", "dots_are_kept", "runs_collapse_to_one_underscore", "every_run_is_replaced"],
+)
+def test_distribution_name(name: str, expected: str, tmp_path: Path) -> None:
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(f'[project]\nname = "{name}"\n')
+
+    assert PythonProject(pyproject_path).distribution_name == expected
+
+def test_output_filename_preserves_case(test_files: tuple, tmp_path: Path) -> None:
+    files, files_excluded_from_bundle, loc = test_files
+    test_data = Data.new(
+        project_name="My-App",
+        project_files=files,
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+    main()
+
+    assert (output_dir_path / "My_App.zip").exists()
+
+@pytest.mark.parametrize(
+    "src_epoch",
+    ["notanumber", "420"],
+    ids=["not_an_integer", "before_1980"],
+)
+def test_source_date_epoch_is_validated_before_packaging(
+    monkeypatch: MonkeyPatch,
+    src_epoch: str,
+    test_data: Data,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", src_epoch)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+
+    with pytest.raises(SourceDateEpochError):
+        main()
+
+    assert list(output_dir_path.iterdir()) == []
+
+def test_output_and_output_dir_are_mutually_exclusive(test_data: Data, tmp_path: Path) -> None:
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(tmp_path / "output"),
+        "--output",
+        str(tmp_path / "output" / "explicit.zip"),
+    ]
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 2

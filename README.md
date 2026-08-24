@@ -15,8 +15,7 @@ poetry bundle venv .build/.venv --without dev
 package-python-function .build/.venv --output-dir .build/lambda
 ```
 
-The output will be a .zip file with the same name as your project from your `pyproject.toml` file (with dashes replaced
-with underscores).
+The output will be a .zip file named after your project, as described in [Output file name](#output-file-name).
 
 ## Installation
 Use [pipx](https://github.com/pypa/pipx) to install:
@@ -27,16 +26,57 @@ pipx install package-python-function
 
 ## Usage / Arguments
 ```shell
-package-python-function venv_dir [--project PROJECT] [--output-dir OUTPUT_DIR] [--output OUTPUT]
+package-python-function venv_dir [--project PROJECT] [--output-dir OUTPUT_DIR] [--output OUTPUT] [--report REPORT]
 ```
 
 - `venv_dir` [Required]: The path to the virtual environment to package.
 - `--project` [Optional]: Path to the `pyproject.toml` file. Omit to use the `pyproject.toml` file in the current working directory.
+- `--report` [Optional]: Path to write a JSON [report file](#report-file) to. Omit to write no report.
 
-One of the following must be specified:
+`--output` and `--output-dir` cannot be used together. If neither is given, the zip is written to the current working
+directory.
 - `--output`: The full output path of the final zip file.
-- `--output-dir`: The output directory for the final zip file. The name of the zip file will be based on the project's
-name in the `pyproject.toml` file (with dashes replaced with underscores).
+- `--output-dir`: The output directory for the final zip file. The name of the zip file is described in
+[Output file name](#output-file-name).
+
+## Output file name
+
+Unless `--output` gives an exact path, the file written is `<output-dir>/<distribution_name>.zip`.
+
+`distribution_name` is the project's name — `[project].name`, or `[tool.poetry].name` if that is absent — with each run
+of characters outside `A-Z a-z 0-9 _ .` replaced by a single underscore, following the
+[PyPA escaping rules](https://peps.python.org/pep-0427/#escaping-and-unicode).
+
+**Case is preserved.** A project named `My-App` produces `My_App.zip`, not `my_app.zip`. Note that this differs from the
+wheel your build tool produces for the same project, whose filename is lowercased — so a wheel's name is not a safe way
+to predict the name of this file.
+
+## Report file
+
+Pass `--report <path>` to have the tool write a JSON description of what it produced, so a calling script does not have
+to re-derive the output path or re-measure the package.
+
+```json
+{
+  "output_file": "/abs/path/lambda/my_app.zip",
+  "distribution_name": "my_app",
+  "output_bytes": 3460000,
+  "uncompressed_bytes": 412000000,
+  "compressed_bytes": 3456789,
+  "nested_zip": false
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `output_file` | Absolute path of the zip that was written. |
+| `distribution_name` | The normalized project name, as described in [Output file name](#output-file-name). |
+| `output_bytes` | Size of the file at `output_file`. This is the artifact you deploy. |
+| `uncompressed_bytes` | Total size of the packaged files before compression. This is the figure compared against the AWS Lambda 250 MiB unzipped limit. |
+| `compressed_bytes` | Size of the dependencies zip. Equal to `output_bytes` unless the nested-zip strategy was used, in which case the outer zip also holds the loader. |
+| `nested_zip` | Whether the nested-zip strategy was used. |
+
+The report is written only when packaging succeeds, so its presence is a reliable signal that the zip is really there.
 
 ## Notes on Reproducibility
 

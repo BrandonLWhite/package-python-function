@@ -25,7 +25,14 @@ def date_time() -> Tuple[int, int, int, int, int, int]:
     """
     source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH", None)
     if source_date_epoch is not None:
-        dt = time.gmtime(int(source_date_epoch))[:6]
+        try:
+            seconds_since_epoch = int(source_date_epoch)
+        except ValueError as error:
+            raise SourceDateEpochError(
+                f"$SOURCE_DATE_EPOCH must be an integer number of seconds since the Epoch, but was "
+                f"'{source_date_epoch}'."
+            ) from error
+        dt = time.gmtime(seconds_since_epoch)[:6]
         if dt[0] < 1980:
             raise SourceDateEpochError(
                 "$SOURCE_DATE_EPOCH must be >= 315532800, since ZIP files need MS-DOS date/time format, which can be 1/1/1980, at minimum."
