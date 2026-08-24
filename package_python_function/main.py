@@ -4,12 +4,18 @@ import logging
 import sys
 
 from .packager import Packager
+from .reproducible_zipfile import date_time
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, stream=sys.stdout, format="%(message)s")
 
     args = parse_args()
+
+    # Validate $SOURCE_DATE_EPOCH here, so that a bad value fails before any packaging work rather than partway
+    # through writing the zip.
+    date_time()
+
     project_path = Path(args.project).resolve()
     venv_path = Path(args.venv_dir).resolve()
     output_dir_path = Path(args.output_dir).resolve()

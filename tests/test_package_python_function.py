@@ -373,3 +373,33 @@ def test_output_filename_preserves_case(test_files: tuple, tmp_path: Path) -> No
     main()
 
     assert (output_dir_path / "My_App.zip").exists()
+
+@pytest.mark.parametrize(
+    "src_epoch",
+    ["notanumber", "420"],
+    ids=["not_an_integer", "before_1980"],
+)
+def test_source_date_epoch_is_validated_before_packaging(
+    monkeypatch: MonkeyPatch,
+    src_epoch: str,
+    test_data: Data,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", src_epoch)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+
+    with pytest.raises(SourceDateEpochError):
+        main()
+
+    assert list(output_dir_path.iterdir()) == []
