@@ -12,6 +12,19 @@ from .reproducible_zipfile import ZipFile
 
 logger = logging.getLogger(__name__)
 
+class PackageTooLargeError(Exception):
+    """Raise when the content is too large for AWS Lambda, both uncompressed and compressed"""
+
+    def __init__(self, uncompressed_bytes: int, compressed_bytes: int, limit_bytes: int):
+        self.uncompressed_bytes = uncompressed_bytes
+        self.compressed_bytes = compressed_bytes
+        self.limit_bytes = limit_bytes
+        super().__init__(
+            f"The uncompressed size ({uncompressed_bytes:,} bytes) is too large for AWS Lambda, and the compressed "
+            f"size ({compressed_bytes:,} bytes) also exceeds the limit of {limit_bytes:,} bytes, so the nested-zip "
+            "strategy cannot be used either. No package was written."
+        )
+
 class Packager:
     AWS_LAMBDA_MAX_UNZIP_SIZE = 262_144_000
     DIRS_TO_EXCLUDE = ["__pycache__"]
@@ -107,7 +120,9 @@ class Packager:
                 self._nested_zip = True
                 self.generate_nested_zip(target_path)
             else:
-                print("TODO Error.  The unzipped size it too large for AWS Lambda.")
+                raise PackageTooLargeError(
+                    self._uncompressed_bytes, compressed_bytes, self.AWS_LAMBDA_MAX_UNZIP_SIZE
+                )
         else:
             logger.info(f"Copying '{target_path}' to '{self.output_file}'")
             shutil.copy(str(target_path), str(self.output_file))

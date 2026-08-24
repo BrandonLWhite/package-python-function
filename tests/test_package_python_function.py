@@ -7,7 +7,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from package_python_function.main import main
-from package_python_function.packager import Packager
+from package_python_function.packager import PackageTooLargeError, Packager
 from package_python_function.reproducible_zipfile import (
     DEFAULT_DATE_TIME,
     SourceDateEpochError,
@@ -275,3 +275,37 @@ def test_no_report_is_written_without_the_flag(test_data: Data, tmp_path: Path) 
     assert [path.name for path in output_dir_path.iterdir()] == [
         f"{test_data.pyproject.name.replace('-', '_')}.zip"
     ]
+
+def test_package_too_large_raises_and_writes_nothing(
+    monkeypatch: MonkeyPatch,
+    test_data: Data,
+    tmp_path: Path,
+) -> None:
+    # A limit this small is exceeded by both figures, which is the only way to reach the failing branch without
+    # generating hundreds of megabytes of incompressible data.
+    monkeypatch.setattr(Packager, "AWS_LAMBDA_MAX_UNZIP_SIZE", 10)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+
+    with pytest.raises(PackageTooLargeError) as error:
+        main()
+
+    assert error.value.uncompressed_bytes > 10
+    assert error.value.compressed_bytes > 10
+    assert error.value.limit_bytes == 10
+
+    assert list(output_dir_path.iterdir()) == []
+    assert not report_path.exists()
