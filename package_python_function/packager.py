@@ -54,7 +54,10 @@ class Packager:
     def input_path(self) -> Path:
         python_paths = list((self.venv_path / 'lib').glob('python*'))
         if not python_paths:
-            raise Exception("input_path")
+            raise FileNotFoundError(
+                f"No 'lib/python*' directory was found in '{self.venv_path}'. Check that this path points at a "
+                "virtual environment with the function's dependencies installed into it."
+            )
         return python_paths[0] / 'site-packages'
 
     def package(self) -> None:

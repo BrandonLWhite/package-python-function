@@ -41,7 +41,8 @@ class PythonProject:
             value = self.get_value(path)
             if value is not None:
                 return value
-        raise Exception("TODO Exception find_value")
+        searched = ", ".join(".".join(path) for path in paths)
+        raise ValueError(f"None of the following were found in '{self.path}': {searched}.")
 
     def get_value(self, path: tuple[str]) -> Optional[str]:
         node = self.toml

@@ -8,6 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 
 from package_python_function.main import main
 from package_python_function.packager import PackageTooLargeError, Packager
+from package_python_function.python_project import PythonProject
 from package_python_function.reproducible_zipfile import (
     DEFAULT_DATE_TIME,
     SourceDateEpochError,
@@ -309,3 +310,26 @@ def test_package_too_large_raises_and_writes_nothing(
 
     assert list(output_dir_path.iterdir()) == []
     assert not report_path.exists()
+
+def test_venv_without_a_python_lib_dir_names_the_path(test_data: Data, tmp_path: Path) -> None:
+    empty_venv_dir = tmp_path / "empty-venv"
+    empty_venv_dir.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(empty_venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(tmp_path / "output"),
+    ]
+
+    with pytest.raises(FileNotFoundError, match="lib/python"):
+        main()
+
+def test_pyproject_without_a_name_names_what_was_searched(tmp_path: Path) -> None:
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text('[project]\nversion = "1.2.3"\n')
+
+    with pytest.raises(ValueError, match="project.name, tool.poetry.name"):
+        PythonProject(pyproject_path).name
