@@ -403,3 +403,20 @@ def test_source_date_epoch_is_validated_before_packaging(
         main()
 
     assert list(output_dir_path.iterdir()) == []
+
+def test_output_and_output_dir_are_mutually_exclusive(test_data: Data, tmp_path: Path) -> None:
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(tmp_path / "output"),
+        "--output",
+        str(tmp_path / "output" / "explicit.zip"),
+    ]
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 2
