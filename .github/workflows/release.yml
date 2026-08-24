@@ -20,7 +20,7 @@ jobs:
       - uses: python-build-tools/pipx-install-action@v1.3.0
 
       - run: poetry install
-      - run: poe test
+      - run: poetry run poe test
       - run: poetry version ${{ github.ref_name }}
       - run: poetry build
 
