@@ -25,7 +25,7 @@ class PythonProject:
     """
     @cached_property
     def distribution_name(self) -> str:
-        return re.sub("[^\w\d.]+", "_", self.name, re.UNICODE)
+        return re.sub(r"[^\w\d.]+", "_", self.name)
 
     @cached_property
     def entrypoint_package_name(self) -> str:

@@ -333,3 +333,43 @@ def test_pyproject_without_a_name_names_what_was_searched(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="project.name, tool.poetry.name"):
         PythonProject(pyproject_path).name
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("My-App", "My_App"),
+        ("my.app", "my.app"),
+        ("a b  c", "a_b_c"),
+        # 35 separate runs to replace. re.UNICODE is 32, so passing it as `count` stopped the replacement early.
+        ("-".join("abcdefghijklmnopqrstuvwxyz0123456789"), "_".join("abcdefghijklmnopqrstuvwxyz0123456789")),
+    ],
+    ids=["case_is_preserved", "dots_are_kept", "runs_collapse_to_one_underscore", "every_run_is_replaced"],
+)
+def test_distribution_name(name: str, expected: str, tmp_path: Path) -> None:
+    pyproject_path = tmp_path / "pyproject.toml"
+    pyproject_path.write_text(f'[project]\nname = "{name}"\n')
+
+    assert PythonProject(pyproject_path).distribution_name == expected
+
+def test_output_filename_preserves_case(test_files: tuple, tmp_path: Path) -> None:
+    files, files_excluded_from_bundle, loc = test_files
+    test_data = Data.new(
+        project_name="My-App",
+        project_files=files,
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+    main()
+
+    assert (output_dir_path / "My_App.zip").exists()
