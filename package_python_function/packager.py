@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 from pathlib import Path
@@ -17,14 +18,24 @@ class Packager:
     DIST_INFO_FILES_TO_EXCLUDE = ["RECORD", "direct_url.json"]
     EXTENSIONS_TO_EXCLUDE = [".pyc", ".pyo"]
 
-    def __init__(self, venv_path: Path, project_path: Path, output_dir: Path, output_file: Path | None):
+    def __init__(
+        self,
+        venv_path: Path,
+        project_path: Path,
+        output_dir: Path,
+        output_file: Path | None,
+        report_file: Path | None = None,
+    ):
         self.project = PythonProject(project_path)
         self.venv_path = venv_path
 
         self.output_dir = output_file.parent if output_file else output_dir
         self.output_file = output_file if output_file else output_dir / f'{self.project.distribution_name}.zip'
+        self.report_file = report_file
 
         self._uncompressed_bytes = 0
+        self._compressed_bytes = 0
+        self._nested_zip = False
 
     @property
     def input_path(self) -> Path:
@@ -40,6 +51,27 @@ class Packager:
 
         with NamedTemporaryFile(suffix=".zip") as dependencies_zip:
             self.zip_all_dependencies(Path(dependencies_zip.name))
+
+        if self.report_file:
+            self.write_report()
+
+    def write_report(self) -> None:
+        """
+        Write a JSON report describing the package that was just produced, so that a calling script does not have to
+        re-derive the output path or re-measure the sizes.
+        """
+        report = {
+            "output_file": str(self.output_file),
+            "distribution_name": self.project.distribution_name,
+            "output_bytes": self.output_file.stat().st_size,
+            "uncompressed_bytes": self._uncompressed_bytes,
+            "compressed_bytes": self._compressed_bytes,
+            "nested_zip": self._nested_zip,
+        }
+
+        logger.info(f"Writing report to '{self.report_file}'...")
+        self.report_file.parent.mkdir(parents=True, exist_ok=True)
+        self.report_file.write_text(json.dumps(report, indent=2) + "\n")
 
     def zip_all_dependencies(self, target_path: Path) -> None:
         logger.info(f"Zipping to {target_path}...")
@@ -64,7 +96,7 @@ class Packager:
 
             zip_dir(self.input_path)
 
-        compressed_bytes = target_path.stat().st_size
+        compressed_bytes = self._compressed_bytes = target_path.stat().st_size
 
         logger.info(f"Uncompressed size: {self._uncompressed_bytes:,} bytes. Compressed size: {compressed_bytes:,} bytes.")
 
@@ -72,6 +104,7 @@ class Packager:
             logger.info(f"The uncompressed size of the ZIP file is greater than the AWS Lambda limit of {self.AWS_LAMBDA_MAX_UNZIP_SIZE:,} bytes.")
             if(compressed_bytes < self.AWS_LAMBDA_MAX_UNZIP_SIZE):
                 logger.info(f"The compressed size ({compressed_bytes:,}) is less than the AWS limit, so the nested-zip strategy will be used.")
+                self._nested_zip = True
                 self.generate_nested_zip(target_path)
             else:
                 print("TODO Error.  The unzipped size it too large for AWS Lambda.")

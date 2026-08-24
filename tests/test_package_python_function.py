@@ -1,3 +1,4 @@
+import json
 import sys
 import zipfile
 from pathlib import Path
@@ -6,12 +7,13 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from package_python_function.main import main
+from package_python_function.packager import Packager
 from package_python_function.reproducible_zipfile import (
     DEFAULT_DATE_TIME,
     SourceDateEpochError,
 )
 
-from .conftest import Data, verify_file_reproducibility
+from .conftest import Data, File, verify_file_reproducibility
 
 @pytest.mark.parametrize(
     "src_epoch, expected_exception, expected_date_time",
@@ -179,3 +181,97 @@ def test_package_python_function_nested(
                         assert not (verify_dir / file.path).exists()
                     else:
                         assert (verify_dir / file.path).exists()
+
+def _expected_uncompressed_bytes(data: Data) -> int:
+    return sum(
+        len(file.contents.encode())
+        for file in data.project_files
+        if file not in data.files_excluded_from_bundle
+    )
+
+def test_report_describes_a_single_zip(test_data: Data, tmp_path: Path) -> None:
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+    main()
+
+    zip_file = output_dir_path / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    report = json.loads(report_path.read_text())
+
+    assert Path(report["output_file"]) == zip_file.resolve()
+    assert report["distribution_name"] == test_data.pyproject.name.replace("-", "_")
+    assert report["nested_zip"] is False
+    assert report["output_bytes"] == zip_file.stat().st_size
+    # The single-zip strategy copies the dependencies zip verbatim, so the two figures describe the same bytes.
+    assert report["compressed_bytes"] == report["output_bytes"]
+    assert report["uncompressed_bytes"] == _expected_uncompressed_bytes(test_data)
+
+def test_report_describes_a_nested_zip(
+    monkeypatch: MonkeyPatch,
+    test_files: tuple,
+    tmp_path: Path,
+) -> None:
+    files, files_excluded_from_bundle, loc = test_files
+    # Compressible bulk, so that the uncompressed size exceeds the limit while the compressed size does not.
+    test_data = Data.new(
+        project_name="project-1",
+        project_files=[*files, File.new("bulky_dependency/bulky.py", "a" * 100_000)],
+        files_excluded_from_bundle=files_excluded_from_bundle,
+    ).commit(loc=loc)
+
+    monkeypatch.setattr(Packager, "AWS_LAMBDA_MAX_UNZIP_SIZE", 10_000)
+
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+    report_path = tmp_path / "report.json"
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+        "--report",
+        str(report_path),
+    ]
+    main()
+
+    outer_zip = output_dir_path / f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    report = json.loads(report_path.read_text())
+
+    assert Path(report["output_file"]) == outer_zip.resolve()
+    assert report["nested_zip"] is True
+    assert report["output_bytes"] == outer_zip.stat().st_size
+    # compressed_bytes describes the inner dependencies zip, which the outer zip stores alongside the loader.
+    assert report["compressed_bytes"] < report["output_bytes"]
+    assert report["uncompressed_bytes"] == _expected_uncompressed_bytes(test_data)
+
+def test_no_report_is_written_without_the_flag(test_data: Data, tmp_path: Path) -> None:
+    output_dir_path = tmp_path / "output"
+    output_dir_path.mkdir()
+
+    sys.argv = [
+        "test_package_python_function",
+        str(test_data.venv_dir),
+        "--project",
+        str(test_data.pyproject.path),
+        "--output-dir",
+        str(output_dir_path),
+    ]
+    main()
+
+    assert [path.name for path in output_dir_path.iterdir()] == [
+        f"{test_data.pyproject.name.replace('-', '_')}.zip"
+    ]
