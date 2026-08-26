@@ -11,16 +11,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7.0.0
         with:
           python-version-file: pyproject.toml
 
-      - uses: BrandonLWhite/pipx-install-action@v1.0.1
+      - uses: python-build-tools/pipx-install-action@v1.3.0
 
       - run: poetry install
-      - run: poe test
+      - run: poetry run poe test
       - run: poetry version ${{ github.ref_name }}
       - run: poetry build
 

@@ -5,7 +5,7 @@ description = "Python script to package a Python function for deploying to AWS L
 authors = [{ name = "Brandon White", email = "brandonlwhite@gmail.com" }]
 license = "MIT"
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 
 [project.urls]
 repository = "https://github.com/BrandonLWhite/package-python-function"
@@ -14,13 +14,14 @@ repository = "https://github.com/BrandonLWhite/package-python-function"
 package-python-function = "package_python_function.main:main"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
+pytest = "^9.1.1"
 pytest-mypy-runner = "^1.0.0"
-mypy = "^1.10.0"
-pytest-cov = "^6.0.0"
+mypy = "^2.3.1"
+pytest-cov = "^7.1.0"
 tomli-w = "^1.2.0"
-pytest-xdist = "^3.6.1"
-pytest-sugar = "^1.0.0"
+pytest-xdist = "^3.8.0"
+pytest-sugar = "^1.1.1"
+poethepoet = "^0.48.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -41,8 +42,7 @@ branch = true
 omit = ["*/tests/**"]
 
 [tool.pipx-install]
-poetry = "==2.1.1"
-poethepoet = "==0.33.1"
+poetry = "==2.4.1"
 
 [tool.poe.tasks]
 test = "pytest --cov=pytest_mypy_runner --cov-report term --cov-report html --cov-report xml -n auto"
